@@ -6,13 +6,14 @@ STM32 采集温湿度/光照 + ESP32-CAM 图像监控 + Flask/MySQL 服务器，
 
 ```
 Plant_Net/
+├─ 首次配置.bat  双击后填写 3 项本机信息，生成全部私有配置
 ├─ STM32/        STM32F103 工程（传感器采集 + ESP8266 数据上送）
 │                 子件：Driver/ESP8266.c(AT驱动)、Core/Src/freertos.c(30s任务)
 ├─ ESP-CAM/      ESP32-CAM 固件（CameraWebServer 改造版：纯客户端推流，XCLK 自动降频）
 ├─ Flask_TCP/    服务器（Flask + MySQL，收 TCP 数据/收流/网页）
-├─ config/       统一网络配置 net_config.h（唯一数据源）
+├─ config/       公开网络配置模板及向导生成的本机配置
 ├─ docs/         配置地图 deployment-config-map.md、设计规格等
-└─ tools/        一键配网 deploy_config.py
+└─ tools/        首次配置向导 first_run_setup.py
 ```
 
 ## 架构
@@ -31,10 +32,11 @@ ESP32-CAM(VGA@10fps 推流) ────────TCP:9001──────�
 
 ## 快速上手
 
-1. **服务器**：确保 MySQL 在跑 → `cd Flask_TCP && python server.py`
-2. **配置**：首次运行 `python tools\deploy_config.py --sync` 会从公开模板生成本地
-   `config/net_config.h`；填写 SSID/密码/服务器 IP 后再运行一次 `--sync`。真实配置不会提交。
-3. **烧录**：STM32 用 CubeIDE/CMake 编译 `STM32/`；ESP-CAM 用 Arduino 打开
+1. **首次配置**：在项目根目录双击 `首次配置.bat`，只需依次填写 MySQL 密码、Windows
+   移动热点名称、移动热点密码。向导会生成服务器配置和两份一致的固件配置；真实密码不会提交。
+2. **服务器**：确保 MySQL 在运行，然后执行向导完成页给出的服务器启动命令（该命令会自动
+   使用本机实际可用的 Python）。
+3. **烧录**：STM32 用 CubeIDE/CMake 编译并烧录 `STM32/`；ESP-CAM 用 Arduino 打开
    `ESP-CAM/CameraWebServer/CameraWebServer.ino` 上传
 4. **外网访问**：cpolar 把本地 8080 建 Web 隧道（远程看网页）；设备异地部署时可给
    TCP 9000/9001 建 TCP 隧道并把 `PN_SERVER_HOST/端口` 改为公网地址（见配置地图）

@@ -768,10 +768,11 @@ Replace the server-address comment in `config/net_config.h` with:
 #define PN_SERVER_HOST    "192.168.137.1"
 ```
 
-Run the existing sync tool after changing the source of truth:
+Regenerate the synchronized local files with the current first-run configuration
+wizard after changing the public template.
 
 ```powershell
-python tools/deploy_config.py --sync
+.\首次配置.bat
 ```
 
 Expected: `STM32/Core/Inc/net_config.h` and

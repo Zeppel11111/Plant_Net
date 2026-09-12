@@ -5,16 +5,14 @@
 
 ## 0. 统一网络配置（net_config.h）—— 优先读这里
 
-换网/搬家时**只需改一处数据源** `config/net_config.h`（SSID/密码/服务器地址/数据端口/推流端口），然后：
-```
-python tools\deploy_config.py            # 交互填写 → 自动改源头+同步两份副本
-python tools\deploy_config.py --sync     # 记事本直接改了源头后，只做同步
-```
-脚本会把内容同步到两份**编译副本**（两份必须与源头一致，烧录才生效）：
+首次使用或更换 Windows 移动热点时，双击项目根目录的 `首次配置.bat`，只填写 MySQL 密码、
+热点名称和热点密码。向导会从公开模板重新生成 `config/net_config.h`，并把内容同步到两份
+**编译副本**（两份必须与源头一致，烧录才生效）：
 - `STM32/Core/Inc/net_config.h`（STM32 侧 include "net_config.h"）
 - `ESP-CAM/CameraWebServer/net_config.h`（CAM 侧同目录 include）
 
-之后分别重新编译烧录 STM32 与 ESP-CAM 即可。下文第 2/3 节的"逐文件改法"是底层说明，日常以本节的脚本流程为准。
+之后分别重新编译烧录 STM32 与 ESP-CAM 即可。下文第 2/3 节的“逐文件改法”是底层说明，
+日常 Windows 移动热点部署以本节的首次配置向导为准。
 
 ## 1. 当前架构
 

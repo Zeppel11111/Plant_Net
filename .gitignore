@@ -1,6 +1,7 @@
 build
 mx.scratch
 !.settings
+__pycache__/
 
 # 厂商资料与文档（PDF/固件 bin/Keil 例程，体积大且与代码无关，不进仓库）
 塔石传感器/
@@ -17,7 +18,6 @@ ESP-CAM/CameraWebServer/*
 !ESP-CAM/CameraWebServer/partitions.csv
 
 # Flask 服务器源码、requirements 与 schema 进入仓库；运行产物与本地数据库配置不进入。
-/Flask_TCP/__pycache__/
 /Flask_TCP/.idea/
 /Flask_TCP/.pip_tmp/
 /Flask_TCP/photos/
@@ -25,7 +25,7 @@ ESP-CAM/CameraWebServer/*
 /Flask_TCP/local_config.py
 
 # 本地网络凭据：公开仓库只提交 config/net_config.example.h。
-# 运行 python tools/deploy_config.py 会自动生成并同步这些本地文件。
+# 双击“首次配置.bat”会从公开模板生成并同步这些本地文件。
 /config/net_config.h
 /STM32/Core/Inc/net_config.h
 /ESP-CAM/CameraWebServer/net_config.h
