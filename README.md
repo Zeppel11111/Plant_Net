@@ -1,48 +1,19 @@
-# Plant_Net —— 植物生长环境监测系统
+# Plant_Net 毕业设计工作区
 
-STM32 采集温湿度/光照 + ESP32-CAM 图像监控 + Flask/MySQL 服务器，局域网绑定运行、可远程访问（cpolar）。
+植物环境监测项目，包含 ESP32-S3 固件、ESP-CAM 固件、Flask/MQTT/MySQL 服务、集成板 PCB 工程和陶晶驰串口屏 UI。
 
-## 目录（三区 + 共享）
+| 路径 | 内容 |
+| --- | --- |
+| `project/Plant_Net/` | ESP-IDF v5.1.2 固件；RS485 三设备采集、串口屏和 MQTT 上报 |
+| `ESP-CAM/CameraWebServer/` | Arduino ESP-CAM 固件；视频推流到 Flask |
+| `Flask_TCP/` | MQTT 订阅、MySQL 入库、Flask 网页、摄像头推流与截图 |
+| `PCB/` | 集成板工程、BOM 与制造资料 |
+| `taojingchi/` | 串口屏 HMI 工程和素材 |
 
-```
-Plant_Net/
-├─ 首次配置.bat  双击后填写 3 项本机信息，生成全部私有配置
-├─ STM32/        STM32F103 工程（传感器采集 + ESP8266 数据上送）
-│                 子件：Driver/ESP8266.c(AT驱动)、Core/Src/freertos.c(30s任务)
-├─ ESP-CAM/      ESP32-CAM 固件（CameraWebServer 改造版：纯客户端推流，XCLK 自动降频）
-├─ Flask_TCP/    服务器（Flask + MySQL，收 TCP 数据/收流/网页）
-├─ config/       公开网络配置模板及向导生成的本机配置
-├─ docs/         配置地图 deployment-config-map.md、设计规格等
-└─ tools/        首次配置向导 first_run_setup.py
-```
+开始前阅读 [固件说明](project/Plant_Net/README.md)和 [服务器说明](Flask_TCP/README.md)。数据库结构参考 `Flask_TCP/schema.sql`；旧版 `dev01` 混合数据的迁移脚本在 `Flask_TCP/migrations/`。
 
-## 架构
+换电脑或换网络时按 [移植指南](MIGRATION.md) 操作。`BISHE` 分支以当前 ESP32 项目为准；旧 STM32 工程、第三方学习例程、运行数据和本机配置不放在分支当前文件树中。
 
-```
-STM32(塔石传感器,30s) ─USART3─► ESP8266 ─TCP:9000─►┐
-                                                   ├─► Flask/MySQL(plant_db) ─► 网页
-ESP32-CAM(VGA@10fps 推流) ────────TCP:9001────────►┘      /api/live 实时画面
-                                                           60s 定时截图存 photos/
-```
+仓库不包含本机密码、构建目录、Python 虚拟环境、运行时照片和个人申报材料。请从 `.example` 文件复制本机配置；不要把真实配置改名后提交。
 
-- **数据**：ESP8266 走 TCP 9000（server.py TCP 线程），表 `sensor_data`(dev01)
-- **图像**：ESP-CAM 纯客户端推 JPEG 帧到 9001（`L:<len>\n`+字节），Flask 内存最新帧 →
-  `/api/live` 实时流 + 定时截取入库 `photo_records`，图落盘 `Flask_TCP/photos/`
-- **网页**：http://<服务器IP>:8080 —— 数据卡 + 实时监控 + 拍照存库
-
-## 快速上手
-
-1. **首次配置**：在项目根目录双击 `首次配置.bat`，只需依次填写 MySQL 密码、Windows
-   移动热点名称、移动热点密码。向导会生成服务器配置和两份一致的固件配置；真实密码不会提交。
-2. **服务器**：确保 MySQL 在运行，然后执行向导完成页给出的服务器启动命令（该命令会自动
-   使用本机实际可用的 Python）。
-3. **烧录**：STM32 用 CubeIDE/CMake 编译并烧录 `STM32/`；ESP-CAM 用 Arduino 打开
-   `ESP-CAM/CameraWebServer/CameraWebServer.ino` 上传
-4. **外网访问**：cpolar 把本地 8080 建 Web 隧道（远程看网页）；设备异地部署时可给
-   TCP 9000/9001 建 TCP 隧道并把 `PN_SERVER_HOST/端口` 改为公网地址（见配置地图）
-
-## 注意事项
-
-- 两块板连**同一热点**；绑定模式下服务器开"移动热点"地址恒 192.168.137.1
-- ESP-CAM 要点：初始化 20MHz → 上电自动降 15MHz（模块时序稳定）；GPIO16 收 STM32 数据为预留（当前数据走 ESP8266）
-- 换网/换地方全流程见 `docs/deployment-config-map.md`
+ESP32-S3 与 ESP-CAM 都会扫描已知热点，按各自配置表的先后顺序连接。新增热点要分别填写 `project/Plant_Net/components/Wifi/wifi_config.h` 和 `ESP-CAM/CameraWebServer/net_config.h`，然后重新烧录一次；此后在这些已知热点之间切换无需再烧录。CAM 配置表的第三列是该热点下 Flask 电脑的地址。

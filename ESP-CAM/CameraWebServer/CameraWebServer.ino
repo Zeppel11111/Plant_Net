@@ -32,11 +32,13 @@
 
 #include "camera_pins.h"
 
-// ===========================
-// WiFi 凭据（来自统一 net_config.h）
-// ===========================
-const char* ssid = PN_WIFI_SSID;
-const char* password = PN_WIFI_PASS;
+// 已知热点按配置顺序排列；密码只保存在不上传的 net_config.h 中。
+struct KnownWifi {
+  const char* ssid;
+  const char* password;
+  const char* server_host;
+};
+static const KnownWifi knownWifi[] = { PN_WIFI_NETWORKS };
 
 void startCameraServer();
 void setupLedFlash(int pin);
@@ -45,9 +47,9 @@ void setupLedFlash(int pin);
  * Plant_Net 推流（CAM 纯客户端）：持续把有效帧推给 Flask 收流口，
  * 定时截取/校验/存库全部在 Flask 端做。帧格式：文本头 "L:<len>\n" + JPEG 字节。
  * ================================================================ */
-const char* gw_host        = PN_SERVER_HOST;   // 默认网关失败后的 Flask 兜底地址
+const char* gw_host        = PN_SERVER_HOST;   // 当前热点的 Flask 兜底地址
 const uint16_t GW_PUSH_PORT = PN_PUSH_PORT;    // Flask 收流口
-const uint32_t GW_PUSH_PERIOD_MS = 100;        // ~10fps VGA（数据已走 ESP8266，带宽充足）
+const uint32_t GW_PUSH_PERIOD_MS = 100;        // VGA 推流间隔约 100 ms
 #define GW_FRAME_SIZE  FRAMESIZE_VGA           /* 640x480：XCLK15 下稳定甜点（SVGA 帧率崩，已回退） */
 #define GW_JPEG_Q      6                        /* JPEG 质量，数字越小越清晰（6~10 常用区间） */
 static uint32_t s_pushRetry = 0;
@@ -60,17 +62,57 @@ static bool gwIpValid(const IPAddress& ip) {
   return ip[0] != 0 || ip[1] != 0 || ip[2] != 0 || ip[3] != 0;
 }
 
-/* WiFi 断开后做一次有界重连，让推流任务不会永久卡在等待里。 */
+/* 扫描一轮热点，按配置顺序尝试可见网络。失败后调用方稍后再扫描。 */
+static bool gwConnectKnownWifiOnce() {
+  WiFi.disconnect();
+  int found = WiFi.scanNetworks();
+  if (found < 0) {
+    Serial.printf("GW| 热点扫描失败：%d\n", found);
+    return false;
+  }
+  Serial.printf("GW| 扫描到 %d 个热点\n", found);
+
+  bool visible[sizeof(knownWifi) / sizeof(knownWifi[0])] = {};
+  for (size_t i = 0; i < sizeof(knownWifi) / sizeof(knownWifi[0]); ++i) {
+    for (int j = 0; j < found; ++j) {
+      if (WiFi.SSID(j) == knownWifi[i].ssid) {
+        visible[i] = true;
+        break;
+      }
+    }
+  }
+  WiFi.scanDelete();
+
+  for (size_t i = 0; i < sizeof(knownWifi) / sizeof(knownWifi[0]); ++i) {
+    if (!visible[i]) continue;
+
+    Serial.printf("GW| 尝试连接已知热点：%s\n", knownWifi[i].ssid);
+    WiFi.begin(knownWifi[i].ssid, knownWifi[i].password);
+    uint32_t start = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - start < 12000u) {
+      delay(200);
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+      gw_host = knownWifi[i].server_host;
+      Serial.printf("GW| 当前热点：%s，IP=%s\n", knownWifi[i].ssid,
+                    WiFi.localIP().toString().c_str());
+      return true;
+    }
+    Serial.printf("GW| 热点连接失败或超时：%s\n", knownWifi[i].ssid);
+    WiFi.disconnect();
+    delay(100);
+  }
+
+  return false;
+}
+
+/* WiFi 断开后重新扫描，让推流任务不会永久卡在原热点。 */
 static bool gwEnsureWifi() {
   if (WiFi.status() == WL_CONNECTED) return true;
 
-  Serial.println("GW| WiFi 已断开，开始重连");
-  WiFi.reconnect();
-  for (uint8_t i = 0; i < 40 && WiFi.status() != WL_CONNECTED; ++i) {
-    vTaskDelay(pdMS_TO_TICKS(250));
-  }
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("GW| WiFi 重连超时");
+  Serial.println("GW| WiFi 已断开，重新扫描已知热点");
+  if (!gwConnectKnownWifiOnce()) {
+    Serial.println("GW| 本轮没有可连接的热点");
     return false;
   }
 
@@ -81,8 +123,7 @@ static bool gwEnsureWifi() {
   return true;
 }
 
-/* Windows 热点模式下默认网关就是 Flask 电脑；普通路由器模式下
- * 网关连接失败后再使用 PN_SERVER_HOST。 */
+/* 优先使用当前热点配置的 Flask 地址；Windows 热点的网关作为兜底。 */
 static bool gwConnectServer(WiFiClient& client) {
   if (!gwEnsureWifi()) return false;
 
@@ -91,23 +132,21 @@ static bool gwConnectServer(WiFiClient& client) {
   bool gatewayValid = gwIpValid(gateway);
 
   client.stop();
-  if (gatewayValid) {
-    Serial.printf("GW| 尝试热点网关 %s:%u\n",
-                  gatewayText.c_str(), GW_PUSH_PORT);
-    if (client.connect(gateway, GW_PUSH_PORT)) {
-      Serial.printf("GW| 推流已连 %s:%u（热点网关）\n",
-                    gatewayText.c_str(), GW_PUSH_PORT);
+  if (gw_host && gw_host[0]) {
+    Serial.printf("GW| 尝试配置服务器 %s:%u\n", gw_host, GW_PUSH_PORT);
+    if (client.connect(gw_host, GW_PUSH_PORT)) {
+      Serial.printf("GW| 推流已连 %s:%u（配置地址）\n", gw_host, GW_PUSH_PORT);
       return true;
     }
   }
 
   /* 地址相同则不重复连接，避免多等一次 TCP 超时。 */
-  if (!gatewayValid || gatewayText != String(gw_host)) {
+  if (gatewayValid && (!gw_host || gatewayText != String(gw_host))) {
     client.stop();
-    Serial.printf("GW| 尝试配置兜底 %s:%u\n", gw_host, GW_PUSH_PORT);
-    if (client.connect(gw_host, GW_PUSH_PORT)) {
-      Serial.printf("GW| 推流已连 %s:%u（配置兜底）\n",
-                    gw_host, GW_PUSH_PORT);
+    Serial.printf("GW| 尝试热点网关 %s:%u\n", gatewayText.c_str(), GW_PUSH_PORT);
+    if (client.connect(gateway, GW_PUSH_PORT)) {
+      Serial.printf("GW| 推流已连 %s:%u（热点网关）\n",
+                    gatewayText.c_str(), GW_PUSH_PORT);
       return true;
     }
   }
@@ -228,19 +267,12 @@ void setup() {
   setupLedFlash(LED_GPIO_NUM);
 #endif
 
-  WiFi.begin(ssid, password);
+  WiFi.mode(WIFI_STA);
+  WiFi.persistent(false);
   WiFi.setSleep(false);
-
-  uint32_t wifiStart = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - wifiStart < 30000u) {
-    delay(500);
-    Serial.print(".");
-  }
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\nGW| 首次连接热点超时，5 秒后重启");
+  while (!gwConnectKnownWifiOnce()) {
+    Serial.println("GW| 没有可连接的已知热点，5 秒后重扫");
     delay(5000);
-    ESP.restart();
-    return;  // 防止极端情况下重启调用返回后继续启动推流
   }
   Serial.println("");
   Serial.println("WiFi connected");

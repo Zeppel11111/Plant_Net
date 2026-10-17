@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>土壤对照 · 1024×600</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #eef4e9;
+      --muted: #8ca59a;
+      --line: rgba(162, 198, 173, .17);
+      --panel: #10231c;
+      --panel-hi: #152b22;
+      --bg: #081811;
+      --mint: #83ddbd;
+      --gold: #e8bb66;
+      --grid: rgba(116, 161, 130, .055);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #06130d; }
+    body {
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: var(--ink);
+      font-family: Bahnschrift, "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+    }
+    .screen {
+      width: 1024px;
+      height: 600px;
+      padding: 26px 40px 20px;
+      overflow: hidden;
+      position: relative;
+      background:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+        radial-gradient(ellipse at 50% -18%, rgba(72, 125, 90, .24), transparent 58%),
+        var(--bg);
+      background-size: 32px 32px, 32px 32px, auto, auto;
+      box-shadow: 0 28px 90px rgba(0, 0, 0, .52), 0 0 0 1px rgba(197, 229, 202, .11);
+      transform-origin: center center;
+    }
+    .topline {
+      height: 66px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+    }
+    .heading { display: flex; align-items: center; gap: 15px; }
+    .back {
+      width: 46px; height: 46px; display: grid; place-items: center;
+      border: 1px solid rgba(131, 221, 189, .28); border-radius: 15px;
+      color: var(--mint); background: rgba(30, 63, 48, .62);
+      font-size: 27px; line-height: 1;
+    }
+    .title { font-size: 29px; font-weight: 700; letter-spacing: .03em; line-height: 1.1; }
+    .subtitle { margin-top: 4px; color: var(--muted); font-size: 10px; letter-spacing: .19em; }
+    .summary { display: flex; align-items: center; gap: 12px; color: #b8cbb9; font-size: 12px; }
+    .summary .live {
+      padding: 9px 13px; border: 1px solid rgba(131, 221, 189, .2);
+      border-radius: 18px; background: rgba(19, 44, 31, .72); letter-spacing: .04em;
+    }
+    .summary .live::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 8px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 10px rgba(131,221,189,.65); vertical-align: 1px; }
+    .section-label {
+      height: 39px; display: flex; align-items: center; justify-content: space-between;
+      color: #849c8e; font-size: 10px; letter-spacing: .15em; text-transform: uppercase;
+    }
+    .section-label .right { color: #668273; letter-spacing: .1em; }
+    .table {
+      height: 407px;
+      border: 1px solid rgba(148, 184, 155, .2);
+      border-radius: 16px;
+      overflow: hidden;
+      background: rgba(12, 30, 21, .88);
+      box-shadow: 0 12px 34px rgba(0, 0, 0, .2);
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 230px 1fr 1fr;
+      align-items: center;
+      height: 44px;
+      border-bottom: 1px solid rgba(145, 181, 153, .105);
+    }
+    .row:last-child { border-bottom: 0; }
+    .head {
+      height: 54px;
+      background: linear-gradient(90deg, rgba(29, 59, 42, .96), rgba(20, 48, 35, .98));
+      border-bottom: 1px solid rgba(151, 190, 158, .25);
+    }
+    .row:nth-child(odd):not(.head) { background: rgba(255,255,255,.018); }
+    .metric, .reading { height: 100%; display: flex; align-items: center; }
+    .metric { padding-left: 19px; gap: 11px; border-right: 1px solid rgba(145, 181, 153, .1); }
+    .reading { justify-content: center; gap: 8px; border-right: 1px solid rgba(145, 181, 153, .1); }
+    .reading:last-child { border-right: 0; }
+    .col-label { padding-left: 19px; color: #91a99a; font-size: 11px; letter-spacing: .15em; }
+    .sensor-head { display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .sensor-name { font-size: 15px; font-weight: 700; letter-spacing: .05em; }
+    .sensor-addr { color: #799185; font: 10px Bahnschrift, sans-serif; letter-spacing: .12em; }
+    .sensor-no {
+      display: grid; place-items: center; width: 27px; height: 27px;
+      border-radius: 9px; font-size: 12px; font-weight: 700;
+    }
+    .sensor-a .sensor-no { color: var(--mint); background: rgba(131,221,189,.12); border: 1px solid rgba(131,221,189,.25); }
+    .sensor-b .sensor-no { color: var(--gold); background: rgba(232,187,102,.12); border: 1px solid rgba(232,187,102,.26); }
+    .sensor-a .sensor-name { color: #b5f0d4; }
+    .sensor-b .sensor-name { color: #f0d497; }
+    .metric-icon {
+      width: 24px; height: 24px; display: grid; place-items: center;
+      border: 1px solid rgba(143, 184, 151, .25); border-radius: 8px;
+      color: #91b29a; font-size: 10px; font-weight: 700;
+    }
+    .metric-cn { font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+    .metric-en { margin-top: 2px; color: #70897b; font-size: 8px; letter-spacing: .13em; }
+    .value { min-width: 77px; text-align: right; font-size: 22px; font-weight: 600; letter-spacing: .035em; font-variant-numeric: tabular-nums; }
+    .unit { min-width: 52px; color: #839b8a; font-size: 10px; }
+    .sensor-a-value { color: #e2f1df; }
+    .sensor-b-value { color: #f3ead0; }
+    .foot {
+      height: 43px; margin-top: 13px; display: flex; align-items: center; justify-content: space-between;
+      border-top: 1px solid var(--line); color: #718b7c; font-size: 9px; letter-spacing: .11em;
+    }
+    .states { display: flex; gap: 18px; }
+    .state { color: #9cb6a3; letter-spacing: .04em; }
+    .state::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: var(--mint); vertical-align: 1px; }
+    .foot .protocol { color: #789183; }
+    html[data-asset="background"] .value,
+    html[data-asset="background"] .state { visibility: hidden; }
+    @media (max-width: 1072px), (max-height: 648px) {
+      body { padding: 0; }
+      .screen { transform: scale(min(calc((100vw - 24px) / 1024), calc((100vh - 24px) / 600))); }
+    }
+  </style>
+</head>
+<body>
+  <main class="screen" aria-label="双土壤传感器对照页面预览，1024乘600">
+    <header class="topline">
+      <div class="heading">
+        <div class="back" aria-hidden="true">‹</div>
+        <div>
+          <div class="title">土壤对照</div>
+          <div class="subtitle">SOIL COMPARISON / LIVE READINGS</div>
+        </div>
+      </div>
+      <div class="summary">
+        <span>2 SENSORS</span>
+        <span class="live">8 项指标 · 实时采集</span>
+      </div>
+    </header>
+
+    <div class="section-label">
+      <span>测量指标 / MEASUREMENTS</span>
+      <span class="right">同指标同行 · 便于对照</span>
+    </div>
+
+    <section class="table" aria-label="两只土壤传感器读数比较">
+      <div class="row head">
+        <div class="col-label">指标 / PARAMETER</div>
+        <div class="sensor-head sensor-a">
+          <span class="sensor-no">01</span>
+          <span class="sensor-name">土壤传感器 1</span>
+          <span class="sensor-addr">MODBUS · 02</span>
+        </div>
+        <div class="sensor-head sensor-b">
+          <span class="sensor-no">02</span>
+          <span class="sensor-name">土壤传感器 2</span>
+          <span class="sensor-addr">MODBUS · 03</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="metric"><span class="metric-icon">°C</span><span><span class="metric-cn">土壤温度</span><span class="metric-en">TEMPERATURE</span></span></div>
+        <div class="reading"><span class="value sensor-a-value">24.8</span><span class="unit">°C</span></div>
+        <div class="reading"><span class="value sensor-b-value">25.1</span><span class="unit">°C</span></div>
+      </div>
+      <div class="row">
+        <div class="metric"><span class="metric-icon">%</span><span><span class="metric-cn">土壤湿度</span><span class="metric-en">MOISTURE</span></span></div>
+        <div class="reading"><span class="value sensor-a-value">46.2</span><span class="unit">%</span></div>
+        <div class="reading"><span class="value sensor-b-value">39.8</span><span class="unit">%</span></div>
+      </div>
+      <div class="row">
+        <div class="metric"><span class="metric-icon">EC</span><span><span class="metric-cn">电导率</span><span class="metric-en">CONDUCTIVITY</span></span></div>
+        <div class="reading"><span class="value sensor-a-value">1280</span><span class="unit">µS/cm</span></div>
+        <div class="reading"><span class="value sensor-b-value">1100</span><span class="unit">µS/cm</span></div>
+      </div>
+      <div class="row">
+        <div class="metric"><span class="metric-icon">pH</span><span><span class="metric-cn">酸碱度</span><span class="metric-en">PH VALUE</span></span></div>
+        <div class="reading"><span class="value sensor-a-value">6.8</span><span class="unit">pH</span></div>
+        <div class="reading"><span class="value sensor-b-value">7.1</span><span class="unit">pH</span></div>
+      </div>
+      <div class="row">
+        <div class="metric"><span class="metric-icon">S</span><span><span class="metric-cn">土壤盐分</span><span class="metric-en">SALINITY</span></span></div>
+        <div class="reading"><span class="value sensor-a-value">620</span><span class="unit">ppm</span></div>
+        <div class="reading"><span class="value sensor-b-value">540</span><span class="unit">ppm</span></div>
+      </div>
+      <div class="row">
+        <div class="metric"><span class="metric-icon">N</span><span><span class="metric-cn">氮含量</span><span class="metric-en">NITROGEN</span></span></div>
+        <div class="reading"><span class="value sensor-a-value">86</span><span class="unit">mg/kg</span></div>
+        <div class="reading"><span class="value sensor-b-value">79</span><span class="unit">mg/kg</span></div>
+      </div>
+      <div class="row">
+        <div class="metric"><span class="metric-icon">P</span><span><span class="metric-cn">磷含量</span><span class="metric-en">PHOSPHORUS</span></span></div>
+        <div class="reading"><span class="value sensor-a-value">42</span><span class="unit">mg/kg</span></div>
+        <div class="reading"><span class="value sensor-b-value">38</span><span class="unit">mg/kg</span></div>
+      </div>
+      <div class="row">
+        <div class="metric"><span class="metric-icon">K</span><span><span class="metric-cn">钾含量</span><span class="metric-en">POTASSIUM</span></span></div>
+        <div class="reading"><span class="value sensor-a-value">158</span><span class="unit">mg/kg</span></div>
+        <div class="reading"><span class="value sensor-b-value">142</span><span class="unit">mg/kg</span></div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <div class="states"><span class="state">传感器 1 在线</span><span class="state">传感器 2 在线</span></div>
+      <span class="protocol">MODBUS RTU &nbsp;·&nbsp; 9600 / 8N1</span>
+      <span>PLANT NET &nbsp; / &nbsp; SOIL COMPARE</span>
+    </footer>
+  </main>
+  <script>
+    if (new URLSearchParams(location.search).get("asset") === "background") {
+      document.documentElement.dataset.asset = "background";
+    }
+  </script>
+</body>
+</html>

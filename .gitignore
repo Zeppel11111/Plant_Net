@@ -1,31 +1,48 @@
-build
-mx.scratch
-!.settings
-__pycache__/
+# 本机凭据（仓库仅保留 .example 模板）
+Flask_TCP/local_config.py
+project/Plant_Net/components/Wifi/wifi_config.h
+ESP-CAM/CameraWebServer/net_config.h
 
-# 厂商资料与文档（PDF/固件 bin/Keil 例程，体积大且与代码无关，不进仓库）
-塔石传感器/
-ESP8266模块资料/
-# ESP-CAM 厂商说明文档不入库；实际固件必须入库，便于换电脑复现
-ESP-CAM/*
-!ESP-CAM/CameraWebServer/
-ESP-CAM/CameraWebServer/*
-!ESP-CAM/CameraWebServer/CameraWebServer.ino
-!ESP-CAM/CameraWebServer/app_httpd.cpp
-!ESP-CAM/CameraWebServer/camera_index.h
-!ESP-CAM/CameraWebServer/camera_pins.h
-!ESP-CAM/CameraWebServer/net_config.h
-!ESP-CAM/CameraWebServer/partitions.csv
+# ESP-IDF 与 Python 构建、依赖和缓存
+**/build/
+**/managed_components/
+**/sdkconfig
+**/sdkconfig.old
+**/sdkconfig.ci
+**/.venv/
+**/venv/
+**/.pip_tmp/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/*.egg-info/
+**/dist/
+**/.idea/
+**/.vscode/
+**/*.log
+**/*.tmp
+**/*.bak
+**/.DS_Store
 
-# Flask 服务器源码、requirements 与 schema 进入仓库；运行产物与本地数据库配置不进入。
-/Flask_TCP/.idea/
-/Flask_TCP/.pip_tmp/
-/Flask_TCP/photos/
-/Flask_TCP/*.log
-/Flask_TCP/local_config.py
+# 运行时数据和本机备份
+Flask_TCP/photos/
+Flask_TCP/.local_backups/
+Flask_TCP/public_page_check.html
 
-# 本地网络凭据：公开仓库只提交 config/net_config.example.h。
-# 双击“首次配置.bat”会从公开模板生成并同步这些本地文件。
-/config/net_config.h
-/STM32/Core/Inc/net_config.h
-/ESP-CAM/CameraWebServer/net_config.h
+# 个人申报材料和重复备份
+资料/
+PCB/毕业设计集成版_backup/
+taojingchi/备份/
+
+# 本地学习例程、第三方参考资料及一次性调试文件
+project/station_test/
+project/Plant_Net/pytest_hello_world.py
+project/Plant_Net/flash_manual_115200.ps1
+project/Plant_Net/塔石传感器/
+project/Plant_Net/土壤传感/
+PCB/气象站参考/
+PCB/STM32最小系统板/
+PCB/*copy.zip
+ESP-CAM/*.docx
+taojingchi/素材/*.mp4
+taojingchi/素材/*.video

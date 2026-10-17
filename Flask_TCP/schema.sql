@@ -5,10 +5,19 @@ USE plant_db;
 
 CREATE TABLE IF NOT EXISTS sensor_data (
     id        INT AUTO_INCREMENT PRIMARY KEY,
-    device_id VARCHAR(20) NOT NULL DEFAULT 'dev01',   -- 设备ID，多设备区分用
-    temp_x10  SMALLINT    NOT NULL COMMENT '温度*10, 268=26.8C',
-    humi_x10  SMALLINT    NOT NULL COMMENT '湿度*10',
-    lux       INT         NOT NULL COMMENT '光照',
+    device_id VARCHAR(20) NOT NULL DEFAULT 'tas01',   -- tas01 / soil02 / soil03
+    valid_mask TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT 'bit0=air/light, bit1=soil',
+    temp_x10  SMALLINT    NULL COMMENT '温度*10, 268=26.8C',
+    humi_x10  SMALLINT    NULL COMMENT '湿度*10',
+    lux       INT         NULL COMMENT '光照',
+    soil_temp_x10 SMALLINT NULL COMMENT '土壤温度*10',
+    soil_humi_x10 SMALLINT NULL COMMENT '土壤湿度*10',
+    soil_ec       INT      NULL COMMENT '土壤电导率',
+    soil_salinity INT      NULL COMMENT '土壤盐度',
+    soil_n        INT      NULL COMMENT '土壤氮',
+    soil_p        INT      NULL COMMENT '土壤磷',
+    soil_k        INT      NULL COMMENT '土壤钾',
+    soil_ph_x10   SMALLINT NULL COMMENT '土壤pH*10',
     ts        DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_ts (ts)
 ) DEFAULT CHARSET=utf8mb4;

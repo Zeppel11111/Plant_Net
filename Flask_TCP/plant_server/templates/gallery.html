@@ -1,0 +1,22 @@
+<!-- 历史照片页：由 web.py 注入照片卡片。 -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plant_Net 照片墙</title>
+<link rel="stylesheet" href="/static/css/gallery.css">
+</head>
+<body>
+<header>
+  <div>
+    <h1>&#127807; 照片墙</h1>
+    <div class="meta">共 @@COUNT@@ 张（最新在前，最多 500 张）· 点击图片看原图</div>
+  </div>
+  <a class="back" href="/">&larr; 返回监控</a>
+</header>
+<div class="grid">
+@@CARDS@@
+</div>
+</body>
+</html>

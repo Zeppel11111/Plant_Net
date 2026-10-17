@@ -1,3 +1,9 @@
-# Auto detect text files and perform LF normalization
+# 文本统一换行；EDA、屏幕与图片工程按二进制保存。
 * text=auto
-*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.HMI binary
+*.eprj2 binary
+*.epro2 binary
+*.xlsx binary
+*.png binary
+*.jpg binary

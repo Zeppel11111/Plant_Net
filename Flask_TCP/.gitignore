@@ -1,0 +1,12 @@
+# 本机数据库凭据与运行时数据
+local_config.py
+photos/
+.local_backups/
+
+# Python 环境、缓存和生成文件
+.venv/
+.pip_tmp/
+__pycache__/
+*.py[cod]
+*.log
+public_page_check.html
