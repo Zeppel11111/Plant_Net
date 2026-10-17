@@ -20,6 +20,10 @@
 #include "sdkconfig.h"
 #include "camera_index.h"
 
+// Plant_Net 推流任务与相机控制页共享的运行时设置。
+extern volatile uint32_t gw_push_fps_limit;
+extern volatile uint32_t gw_push_actual_fps_x10;
+
 #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_ARDUHAL_ESP_LOG)
 #include "esp32-hal-log.h"
 #endif
@@ -845,6 +849,12 @@ static esp_err_t cmd_handler(httpd_req_t *req)
     }
     else if (!strcmp(variable, "quality"))
         res = s->set_quality(s, val);
+    else if (!strcmp(variable, "push_fps")) {
+        if (val < 1 || val > 15)
+            res = -1;
+        else
+            gw_push_fps_limit = (uint32_t)val;
+    }
     else if (!strcmp(variable, "contrast"))
         res = s->set_contrast(s, val);
     else if (!strcmp(variable, "brightness"))
@@ -938,7 +948,7 @@ static int print_reg(char * p, sensor_t * s, uint16_t reg, uint32_t mask){
 
 static esp_err_t status_handler(httpd_req_t *req)
 {
-    static char json_response[1024];
+    static char json_response[2048];
 
     sensor_t *s = esp_camera_sensor_get();
     char *p = json_response;
@@ -977,6 +987,8 @@ static esp_err_t status_handler(httpd_req_t *req)
     p += sprintf(p, "\"pixformat\":%u,", s->pixformat);
     p += sprintf(p, "\"framesize\":%u,", s->status.framesize);
     p += sprintf(p, "\"quality\":%u,", s->status.quality);
+    p += sprintf(p, "\"push_fps_limit\":%u,", (unsigned)gw_push_fps_limit);
+    p += sprintf(p, "\"push_actual_fps_x10\":%u,", (unsigned)gw_push_actual_fps_x10);
     p += sprintf(p, "\"brightness\":%d,", s->status.brightness);
     p += sprintf(p, "\"contrast\":%d,", s->status.contrast);
     p += sprintf(p, "\"saturation\":%d,", s->status.saturation);

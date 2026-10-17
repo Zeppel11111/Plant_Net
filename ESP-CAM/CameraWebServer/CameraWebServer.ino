@@ -49,9 +49,10 @@ void setupLedFlash(int pin);
  * ================================================================ */
 const char* gw_host        = PN_SERVER_HOST;   // 当前热点的 Flask 兜底地址
 const uint16_t GW_PUSH_PORT = PN_PUSH_PORT;    // Flask 收流口
-const uint32_t GW_PUSH_PERIOD_MS = 100;        // VGA 推流间隔约 100 ms
-#define GW_FRAME_SIZE  FRAMESIZE_VGA           /* 640x480：XCLK15 下稳定甜点（SVGA 帧率崩，已回退） */
-#define GW_JPEG_Q      6                        /* JPEG 质量，数字越小越清晰（6~10 常用区间） */
+#define GW_FRAME_SIZE  FRAMESIZE_SVGA          /* 800x600 */
+#define GW_JPEG_Q      12                       /* JPEG 质量，数字越小压缩越少 */
+volatile uint32_t gw_push_fps_limit = 10;       // 网页可调整的推流帧率上限
+volatile uint32_t gw_push_actual_fps_x10 = 0;  // 最近 10 秒成功推送的平均 FPS ×10
 static uint32_t s_pushRetry = 0;
 
 static bool gwFrameValid(camera_fb_t* fb) {
@@ -157,21 +158,49 @@ static bool gwConnectServer(WiFiClient& client) {
 
 static void pushTask(void*) {
   WiFiClient c;
+  uint32_t fpsStart = millis();
+  uint32_t pushedFrames = 0;
   for (;;) {
     if (!c.connected()) {
+      gw_push_actual_fps_x10 = 0;
       if (millis() - s_pushRetry < 3000) { vTaskDelay(300); continue; }
       s_pushRetry = millis();
       if (!gwConnectServer(c)) { vTaskDelay(1000); continue; }
+      fpsStart = millis();
+      pushedFrames = 0;
     }
+    uint32_t frameStart = millis();
     camera_fb_t* fb = esp_camera_fb_get();
     if (fb) {
       if (gwFrameValid(fb)) {
         c.print("L:"); c.print(fb->len); c.print("\n");
-        c.write(fb->buf, fb->len);
+        if (c.write(fb->buf, fb->len) == fb->len) {
+          ++pushedFrames;
+        } else {
+          Serial.println("GW| JPEG 发送不完整，重新连接服务器");
+          c.stop();
+          gw_push_actual_fps_x10 = 0;
+        }
       }
       esp_camera_fb_return(fb);
     }
-    vTaskDelay(GW_PUSH_PERIOD_MS);
+    uint32_t elapsed = millis() - fpsStart;
+    if (elapsed >= 10000u) {
+      gw_push_actual_fps_x10 = (pushedFrames * 10000u + elapsed / 2u) / elapsed;
+      Serial.printf("GW| 最近 %lu ms 推流 %lu 帧，平均 %.1f FPS\n",
+                    (unsigned long)elapsed, (unsigned long)pushedFrames,
+                    pushedFrames * 1000.0f / elapsed);
+      fpsStart = millis();
+      pushedFrames = 0;
+    }
+    // 把采集与网络发送耗时也计入周期，设置值表示帧率上限。
+    uint32_t periodMs = 1000u / gw_push_fps_limit;
+    uint32_t frameElapsed = millis() - frameStart;
+    if (frameElapsed < periodMs) {
+      vTaskDelay(pdMS_TO_TICKS(periodMs - frameElapsed));
+    } else {
+      vTaskDelay(1);
+    }
   }
 }
 
@@ -200,24 +229,20 @@ void setup() {
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
-  config.frame_size = FRAMESIZE_UXGA;
+  config.frame_size = GW_FRAME_SIZE;
   config.pixel_format = PIXFORMAT_JPEG;  // for streaming
   //config.pixel_format = PIXFORMAT_RGB565; // for face detection/recognition
   config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
   config.fb_location = CAMERA_FB_IN_PSRAM;
-  config.jpeg_quality = 12;
+  config.jpeg_quality = GW_JPEG_Q;
   config.fb_count = 1;
 
-  // if PSRAM IC present, init with UXGA resolution and higher JPEG quality
-  //                      for larger pre-allocated frame buffer.
+  // 按实际推流分辨率分配帧缓冲，避免为 UXGA 预留多余内存。
   if (config.pixel_format == PIXFORMAT_JPEG) {
     if (psramFound()) {
-      config.jpeg_quality = 10;
       config.fb_count = 2;
       config.grab_mode = CAMERA_GRAB_LATEST;
     } else {
-      // Limit the frame size when PSRAM is not available
-      config.frame_size = FRAMESIZE_SVGA;
       config.fb_location = CAMERA_FB_IN_DRAM;
     }
   } else {
@@ -247,11 +272,30 @@ void setup() {
     s->set_brightness(s, 1);   // up the brightness just a bit
     s->set_saturation(s, -2);  // lower the saturation
   }
-  // drop down frame size（VGA：清晰与带宽的甜点；SVGA 在此模块 XCLK15 下有时序风险）
-  if (config.pixel_format == PIXFORMAT_JPEG) {
-    s->set_framesize(s, GW_FRAME_SIZE);
+  // 长时间监控画质参数。方向由安装方式决定，保持原来的翻转设置。
+  s->set_brightness(s, 0);
+  s->set_contrast(s, 0);
+  s->set_saturation(s, 0);
+  if (s->set_sharpness) {
+    int rc = s->set_sharpness(s, 1);
+    if (rc != 0) Serial.printf("GW| 锐度 +1 设置失败 (rc=%d)\n", rc);
+  } else {
+    Serial.println("GW| 当前传感器不支持设置锐度");
   }
-  s->set_quality(s, GW_JPEG_Q);   // 质量越小越清晰
+  // 降噪“自动”没有对应的统一驱动档位，保留传感器默认值。
+  s->set_ae_level(s, 0);
+  s->set_special_effect(s, 0);
+  s->set_whitebal(s, 1);       // 自动白平衡
+  s->set_awb_gain(s, 1);       // 高级自动白平衡
+  s->set_wb_mode(s, 0);        // 不指定手动白平衡模式
+  s->set_exposure_ctrl(s, 1);  // 自动曝光
+  s->set_aec2(s, 0);           // 夜间模式关闭
+  s->set_gain_ctrl(s, 1);      // 自动增益
+  s->set_raw_gma(s, 1);
+  s->set_lenc(s, 1);
+  s->set_bpc(s, 1);
+  s->set_wpc(s, 1);
+  s->set_colorbar(s, 0);
 
 #if defined(CAMERA_MODEL_M5STACK_WIDE) || defined(CAMERA_MODEL_M5STACK_ESP32CAM)
   s->set_vflip(s, 1);
@@ -282,7 +326,7 @@ void setup() {
 
   startCameraServer();
 
-  /* XCLK 运行时降频：初始化 20MHz 保险起步 → 等 httpd 起来后切 15MHz（同页面 /xclk） */
+  /* XCLK 运行时降频：初始化仍以 20MHz 起步，推流前切到 15MHz。 */
   delay(1000);
   {
     int rc = s->set_xclk(s, LEDC_TIMER_0, 15);

@@ -9,7 +9,8 @@ from .config import PHOTO_DIR, RECORD_DEVICE
 from .storage import get_conn, save_row, fetch_recent
 from .dashboard import (tfmt, hfmt, dashboard_record, dashboard_series,
                         grouped_table_rows, api_row)
-from .camera import (CAM_IP, photo_save, get_latest_frame, save_snapshot)
+from .camera import (CAM_IP, photo_save, get_latest_frame, save_snapshot,
+                     get_camera_settings, set_camera_settings)
 
 
 app = Flask(__name__)
@@ -131,6 +132,28 @@ def api_live():
             else:
                 time.sleep(0.05)
     return Response(gen(), mimetype="multipart/x-mixed-replace; boundary=frame")
+
+
+@app.route("/api/camera/settings", methods=["GET", "POST"])
+def api_camera_settings():
+    """网页调试面板经 Flask 调整 CAM，避免浏览器直接访问不同源设备。"""
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        fps_limit = data.get("fps_limit")
+        quality = data.get("quality")
+        if (type(fps_limit) is not int or not 1 <= fps_limit <= 15 or
+                type(quality) is not int or not 6 <= quality <= 30):
+            return jsonify(ok=False, err="帧率上限需为 1–15，JPEG 质量值需为 6–30"), 400
+        try:
+            settings = set_camera_settings(fps_limit, quality)
+        except Exception as exc:
+            return jsonify(ok=False, err="CAM 设置失败：%s" % exc), 503
+    else:
+        try:
+            settings = get_camera_settings()
+        except Exception as exc:
+            return jsonify(ok=False, err="CAM 状态读取失败：%s" % exc), 503
+    return jsonify(ok=True, **settings)
 
 
 @app.route("/api/camip")

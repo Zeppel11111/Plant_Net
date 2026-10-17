@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <title>植物生长观测站</title>
-<link rel="stylesheet" href="/static/css/dashboard.css">
+<link rel="stylesheet" href="/static/css/dashboard.css?v=cam-controls-1">
 </head>
 <body>
 <div class="wrap">
@@ -24,13 +24,32 @@
     <div id="snapBox" style="margin:10px 0 0;display:none"></div>
   </header>
 
-  <section class="chart-card" id="monBox" style="display:none;margin-bottom:20px">
+  <section class="chart-card monitor-card" id="monBox" style="display:none">
     <div class="chart-head">
       <h2><span style="width:5px;height:15px;border-radius:3px;background:linear-gradient(180deg,#17b184,rgba(23,177,132,.08));display:inline-block;margin-right:9px"></span>实时监控</h2>
       <div class="hint">MJPEG 流 · 页面不保存 · 截图走“拍照存库”入库</div>
     </div>
-    <img id="liveCam" alt="监控画面" style="width:100%;border-radius:14px;display:block;background:#0d2330">
+    <img id="liveCam" class="monitor-image" alt="监控画面">
     <div class="hint" id="monHint" style="margin-top:6px">等待设备上报，获取 CAM 地址…</div>
+    <details class="camera-debug" id="cameraDebug">
+      <summary>摄像头调试设置 <span id="cameraActualFps">实际推流 FPS：--</span></summary>
+      <form id="cameraSettingsForm" class="camera-controls">
+        <label class="camera-field" for="cameraFps">
+          <span>推流帧率上限 <output id="cameraFpsValue" for="cameraFps">10 FPS</output></span>
+          <input id="cameraFps" type="range" min="1" max="15" step="1" value="10">
+          <small>实际帧率还取决于采集、Wi-Fi 和 Flask 转播耗时。</small>
+        </label>
+        <label class="camera-field" for="cameraQuality">
+          <span>JPEG 质量值 <output id="cameraQualityValue" for="cameraQuality">12</output></span>
+          <input id="cameraQuality" type="range" min="6" max="30" step="1" value="12">
+          <small>数值越小，画质越高、每帧通常越大。</small>
+        </label>
+        <div class="camera-actions">
+          <button type="submit" id="cameraApply">应用到 CAM</button>
+          <span id="cameraSettingsStatus" role="status" aria-live="polite">展开后读取 CAM 当前设置</span>
+        </div>
+      </form>
+    </details>
   </section>
 
   <div class="tabs" role="tablist" aria-label="遥测数据分组">
@@ -97,6 +116,6 @@ window.PLANT_NET_DATA = {
   table_rows: @@TABLE_ROWS@@
 };
 </script>
-<script src="/static/js/dashboard.js"></script>
+<script src="/static/js/dashboard.js?v=cam-controls-1"></script>
 </body>
 </html>

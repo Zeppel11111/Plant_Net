@@ -1,9 +1,12 @@
 """相机接入：接收 JPEG 帧、维护最新画面，并保存定时或手动截图。"""
 
 import os
+import json
 import socket
 import threading
 import time
+import urllib.parse
+import urllib.request
 from datetime import datetime
 from .config import PHOTO_DIR, PUSH_PORT, RECORD_DEVICE, SNAP_INTERVAL_SEC
 from .device_ids import AIR_DEVICE_ID
@@ -26,6 +29,38 @@ FRAME_LOCK = threading.Lock()
 
 
 FRAME_BUF = {"jpeg": None, "ts": 0.0, "ok": 0, "bad": 0}
+CAM_HTTP = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def _cam_control_url(path, params=None):
+    """只访问当前推流设备在局域网内的相机控制服务。"""
+    ip = CAM_IP.get(RECORD_DEVICE)
+    if not ip:
+        raise RuntimeError("CAM 尚未连接推流，无法获取控制地址")
+    query = "?" + urllib.parse.urlencode(params) if params else ""
+    return "http://%s:80%s%s" % (ip, path, query)
+
+
+def get_camera_settings():
+    """向 CAM 读取实际生效的 JPEG 质量、帧率上限和实测推流 FPS。"""
+    with CAM_HTTP.open(_cam_control_url("/status"), timeout=3) as resp:
+        status = json.load(resp)
+    if "push_fps_limit" not in status or "push_actual_fps_x10" not in status:
+        raise RuntimeError("CAM 固件尚未包含网页调试控制，请先烧录新版固件")
+    return {
+        "quality": int(status["quality"]),
+        "fps_limit": int(status["push_fps_limit"]),
+        "actual_fps": int(status["push_actual_fps_x10"]) / 10,
+    }
+
+
+def set_camera_settings(fps_limit, quality):
+    """通过 CAM 自带的 /control 接口修改当前运行参数。"""
+    for variable, value in (("push_fps", fps_limit), ("quality", quality)):
+        url = _cam_control_url("/control", {"var": variable, "val": value})
+        with CAM_HTTP.open(url, timeout=3) as resp:
+            resp.read()
+    return get_camera_settings()
 
 
 def photo_save(device_id, temp_x10, humi_x10, lux, jpeg):

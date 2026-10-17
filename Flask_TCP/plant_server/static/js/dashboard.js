@@ -394,6 +394,55 @@ function snapNow(){
     .then(function(){if(b){b.disabled=false;b.textContent="拍照存库";}});
 }
 
+/* ---------- 摄像头调试：由 Flask 转发设置到当前连接的 CAM ---------- */
+(function initCameraSettings(){
+  var details=document.getElementById("cameraDebug"),form=document.getElementById("cameraSettingsForm");
+  if(!details||!form)return;
+  var fps=document.getElementById("cameraFps"),quality=document.getElementById("cameraQuality"),
+      fpsValue=document.getElementById("cameraFpsValue"),qualityValue=document.getElementById("cameraQualityValue"),
+      actual=document.getElementById("cameraActualFps"),status=document.getElementById("cameraSettingsStatus"),
+      button=document.getElementById("cameraApply"),loading=false;
+  function showValues(){fpsValue.textContent=fps.value+" FPS";qualityValue.textContent=quality.value;}
+  fps.addEventListener("input",showValues);
+  quality.addEventListener("input",showValues);
+
+  async function readSettings(fillInputs){
+    if(loading)return;
+    loading=true;
+    try{
+      var response=await fetch("/api/camera/settings",{cache:"no-store"});
+      var data=await response.json();
+      if(!response.ok||!data.ok)throw new Error(data.err||"读取失败");
+      if(fillInputs){fps.value=data.fps_limit;quality.value=data.quality;showValues();}
+      actual.textContent="实际推流 FPS："+Number(data.actual_fps).toFixed(1);
+      status.textContent="当前 CAM 设置已读取";
+    }catch(error){
+      actual.textContent="实际推流 FPS：--";
+      status.textContent=error.message;
+    }finally{loading=false;}
+  }
+
+  details.addEventListener("toggle",function(){if(details.open)readSettings(true);});
+  setInterval(function(){if(details.open)readSettings(false);},10000);
+  form.addEventListener("submit",async function(event){
+    event.preventDefault();
+    if(loading)return;
+    loading=true;button.disabled=true;status.textContent="正在应用到 CAM…";
+    try{
+      var response=await fetch("/api/camera/settings",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({fps_limit:Number(fps.value),quality:Number(quality.value)})
+      });
+      var data=await response.json();
+      if(!response.ok||!data.ok)throw new Error(data.err||"设置失败");
+      fps.value=data.fps_limit;quality.value=data.quality;showValues();
+      actual.textContent="实际推流 FPS："+Number(data.actual_fps).toFixed(1);
+      status.textContent="已应用；约 10 秒后更新实际 FPS";
+    }catch(error){status.textContent=error.message;}
+    finally{button.disabled=false;loading=false;}
+  });
+})();
+
 /* ---------- 监控：Flask MJPEG 实时流（/api/live，浏览器一次连接持续收帧） ---------- */
 function refreshCam(){
   var box=document.getElementById("monBox"), img=document.getElementById("liveCam"),
